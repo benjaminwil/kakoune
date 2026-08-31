@@ -109,6 +109,13 @@ If no client is passed then the current one is used' \
     else
         # Works on Ghostty commit 73534c4680a809398b396c94ac7f12fcccb7963d (2026-07-16).
         # Expected to be officially supported beginning with Ghostty 1.4.0.
+        #
+        # XXX: The more obvious implementation is to check `if pid of term = '${kak_client_pid}'`,
+        # but (as at Ghostty commit c2906398be63f7eed567eee294ec09f291844b95, 2026-09-01) if we use
+        # `ghostty-terminal-window` to open a window then its `pid of term` evaluates to the PID of
+        # the `login` process in which Kakoune is running, not Kakoune itself, so the target client
+        # cannot be found and `ghostty-focus` does nothing.
+        # This is potentially a Ghostty bug.
         THIS_TTY=$(ps -p "$kak_client_pid" -o tty=)
         osascript                                                           \
         -e 'tell application "Ghostty"'                                     \
