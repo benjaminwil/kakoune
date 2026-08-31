@@ -3,6 +3,10 @@
 
 # Bug: Ghostty (up to at least nightly build 2026-07-16) ignores our `set wait after command
 # of cfg to false` instruction and requires a keypress to close a terminal.
+# 
+# TODO: When Ghostty 1.4.0 is released ghostty-terminal-impl can be made more efficient by finding
+# the terminal by %val{client_pid} instead of running a precautionary ghostty-focus (see
+# ghostty-focus implementation for how to do this).
 
 provide-module ghostty %{
 
@@ -14,6 +18,8 @@ evaluate-commands %sh{
 define-command -params 2.. -docstring '
 ghostty-terminal-impl <direction> <program> [<arguments>]
 direction is tab|window|up|down|left|right' ghostty-terminal-impl %{
+    # Ensures the current client is in the focused terminal, which is an assumption of our AppleScripts.
+    ghostty-focus
     nop %sh{
         direction="$1"
         shift
