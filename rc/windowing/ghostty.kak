@@ -3,7 +3,7 @@
 
 # Bug: Ghostty (up to at least nightly build 2026-07-16) ignores our `set wait after command
 # of cfg to false` instruction and requires a keypress to close a terminal.
-# 
+#
 # TODO: When Ghostty 1.4.0 is released ghostty-terminal-impl can be made more efficient by finding
 # the terminal by %val{client_pid} instead of running a precautionary ghostty-focus (see
 # ghostty-focus implementation for how to do this).
@@ -13,7 +13,6 @@ provide-module ghostty %{
 # ensure that we're running in Ghostty
 evaluate-commands %sh{
     [ -z "${kak_opt_windowing_modules}" ] || [ "$TERM" = "xterm-ghostty" ] || echo 'fail Ghostty not detected'
-    [ -x "$(which osascript)" ] || echo 'fail Ghostty detected; could not find osascript (macOS only)'
 }
 define-command -params 2.. -docstring '
 ghostty-terminal-impl <direction> <program> [<arguments>]
@@ -21,8 +20,20 @@ direction is tab|window|up|down|left|right' ghostty-terminal-impl %{
     # Ensures the current client is in the focused terminal, which is an assumption of our AppleScripts.
     ghostty-focus
     nop %sh{
-        direction="$1"
-        shift
+        case "$(uname)" in
+            darwin*)
+                direction="$1"
+                shift
+                ;;
+            *)
+                # There is no equivalent to something like osascript for Linux that we can use to automate
+                # different window splitting directions or new tabs. As of this writing, Ghostty only provides
+                # an explicit CLI for programmatically creating new windows.
+                shift
+                ghostty +new-window -e "$@" && exit
+                ;;
+        esac
+
         # join the arguments as one string for the shell execution (see x11.kak)
         args=$(
             for i in "$@"; do
@@ -112,7 +123,7 @@ If no client is passed then the current one is used' \
 %{ evaluate-commands %sh{
     if [ $# -eq 1 ]; then
         printf "evaluate-commands -client '%s' focus" "$1"
-    else
+    elif [ "$(uname)" = "Darwin" ]; then
         # Works on Ghostty commit 73534c4680a809398b396c94ac7f12fcccb7963d (2026-07-16).
         # Expected to be officially supported beginning with Ghostty 1.4.0.
         #
@@ -132,10 +143,14 @@ If no client is passed then the current one is used' \
         -e '        end if'                                                 \
         -e '    end repeat'                                                 \
         -e 'end tell' >/dev/null
+    elif [ -n "$WAYLAND_DISPLAY" ]; then
+        echo "echo -debug 'Focusing specific windows in most Wayland window managers is unsupported'"
+    elif [ -n "$DISPLAY"]; then
+        xdotool windowactivate $kak_client_env_WINDOWID > /dev/null ||
+        echo 'fail failed to run x11-focus, see *debug* buffer for details'
     fi
 }}
 complete-command -menu ghostty-focus client
 
 alias global focus ghostty-focus
 }
-
